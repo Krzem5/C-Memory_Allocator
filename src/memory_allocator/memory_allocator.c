@@ -2,7 +2,8 @@
 #define WIN32_LEAN_AND_MEAN 1
 #include <windows.h>
 #else
-#error Unimplemented!
+#include <sys/mman.h>
+#include <unistd.h>
 #endif
 #include <memory_allocator.h>
 #include <signal.h>
@@ -33,8 +34,6 @@
 #define SIZE_MASK 0xfffffffffffffffe
 #define FLAG_USED 1
 
-#define PAGE_RESERVATION_COUNT 16
-
 
 
 typedef struct __HEADER{
@@ -52,6 +51,7 @@ typedef struct __NODE{
 
 
 typedef struct __ALLOCATOR{
+	void* ptr;
 	node_t* h;
 } allocator_t;
 
@@ -68,13 +68,15 @@ void init_allocator(void){
 	GetSystemInfo(&si);
 	_pg_sz=si.dwPageSize;
 #else
+	_pg_sz=sysconf(_SC_PAGESIZE);
 #endif
+	a_dt.ptr=NULL;
 	a_dt.h=NULL;
 }
 
 
 
-void* allocate(uint32_t sz){
+void* allocate(size_t sz){
 	sz=ALIGN(sz)+sizeof(header_t);
 	if (sz<sizeof(node_t)){
 		sz=sizeof(node_t);
@@ -92,16 +94,19 @@ void* allocate(uint32_t sz){
 #ifdef _MSC_VER
 		void* pg=VirtualAlloc(NULL,pg_sz,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);
 #else
+		void* pg=mmap(NULL,pg_sz,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
 #endif
-		CORRECT_ALIGNMENT(pg);
-		n=(node_t*)pg;
-		n->sz=pg_sz-sizeof(header_t);
+		*((void**)pg)=a_dt.ptr;
+		n=(node_t*)((uint64_t)pg+8);
+		CORRECT_ALIGNMENT(n);
+		n->sz=pg_sz-sizeof(void*)-sizeof(header_t);
 		n->p=NULL;
 		n->n=a_dt.h;
 		if (n->n){
 			n->n->p=n;
 		}
 		((header_t*)((uint64_t)pg+pg_sz-sizeof(header_t)))->sz=FLAG_USED;
+		a_dt.ptr=pg;
 		a_dt.h=n;
 	}
 	if (n->sz-sz>=sizeof(node_t)){
@@ -121,7 +126,7 @@ void* allocate(uint32_t sz){
 		}
 	}
 	else{
-		sz=(uint32_t)n->sz;
+		sz=n->sz;
 		CORRECT_ALIGNMENT(sz);
 		if (!n->p){
 			a_dt.h=n->n;
@@ -153,7 +158,10 @@ void deallocate(void* p){
 		n->sz+=nn->sz;
 		n->p=nn->p;
 		n->n=nn->n;
-		if (n->p){
+		if (!n->p){
+			a_dt.h=n;
+		}
+		else{
 			n->p->n=n;
 		}
 	}
@@ -165,4 +173,14 @@ void deallocate(void* p){
 
 
 void deinit_allocator(void){
+	void* c=a_dt.ptr;
+	while (c){
+		void* n=*((void**)c);
+#ifdef _MSC_VER
+		VirtualFree(c,0,MEM_RELEASE);
+#else
+		munmap(c,_pg_sz);
+#endif
+		c=n;
+	}
 }
