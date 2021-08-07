@@ -88,16 +88,16 @@ void* allocate(size_t sz){
 			break;
 		}
 		n=n->n;
-	};
+	}
 	if (!n){
-		uint64_t pg_sz=(sz+sizeof(node_t)+sizeof(header_t)+_pg_sz-1)/_pg_sz*_pg_sz;
+		uint64_t pg_sz=(sz+sizeof(void*)+sizeof(header_t)+_pg_sz-1)/_pg_sz*_pg_sz;
 #ifdef _MSC_VER
 		void* pg=VirtualAlloc(NULL,pg_sz,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);
 #else
 		void* pg=mmap(NULL,pg_sz,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
 #endif
 		*((void**)pg)=a_dt.ptr;
-		n=(node_t*)((uint64_t)pg+8);
+		n=(node_t*)((uint64_t)pg+sizeof(void*));
 		CORRECT_ALIGNMENT(n);
 		n->sz=pg_sz-sizeof(void*)-sizeof(header_t);
 		n->p=NULL;
