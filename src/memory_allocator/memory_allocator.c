@@ -90,7 +90,7 @@ void* allocate(size_t sz){
 		n=n->n;
 	};
 	if (!n){
-		uint64_t pg_sz=(sz+_pg_sz-1)/_pg_sz*_pg_sz;
+		uint64_t pg_sz=(sz+sizeof(node_t)+sizeof(header_t)+_pg_sz-1)/_pg_sz*_pg_sz;
 #ifdef _MSC_VER
 		void* pg=VirtualAlloc(NULL,pg_sz,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);
 #else
