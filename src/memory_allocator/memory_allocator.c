@@ -28,11 +28,17 @@
 
 #define ALIGN(a) ((((uint64_t)(a))+ALLOCATOR_ALIGNMENT-1)&(~(ALLOCATOR_ALIGNMENT-1)))
 
-#define ALLOCATOR_SIZE 1048576
 #define ALLOCATOR_ALIGNMENT 8
 
 #define SIZE_MASK 0xfffffffffffffffe
 #define FLAG_USED 1
+
+
+
+typedef struct __PAGE_HEADER{
+	void* p;
+	uint64_t sz;
+} page_header_t;
 
 
 
@@ -90,16 +96,18 @@ void* allocate(size_t sz){
 		n=n->n;
 	}
 	if (!n){
-		uint64_t pg_sz=(sz+sizeof(void*)+sizeof(header_t)+_pg_sz-1)/_pg_sz*_pg_sz;
+		uint64_t pg_sz=(sz+sizeof(page_header_t)+sizeof(header_t)+_pg_sz-1)/_pg_sz*_pg_sz;
 #ifdef _MSC_VER
 		void* pg=VirtualAlloc(NULL,pg_sz,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);
 #else
 		void* pg=mmap(NULL,pg_sz,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
 #endif
-		*((void**)pg)=a_dt.ptr;
-		n=(node_t*)((uint64_t)pg+sizeof(void*));
+		page_header_t* pg_h=(page_header_t*)pg;
+		pg_h->p=a_dt.ptr;
+		pg_h->sz=pg_sz;
+		n=(node_t*)((uint64_t)pg+sizeof(page_header_t));
 		CORRECT_ALIGNMENT(n);
-		n->sz=pg_sz-sizeof(void*)-sizeof(header_t);
+		n->sz=pg_sz-sizeof(page_header_t)-sizeof(header_t);
 		n->p=NULL;
 		n->n=a_dt.h;
 		if (n->n){
@@ -175,11 +183,12 @@ void deallocate(void* p){
 void deinit_allocator(void){
 	void* c=a_dt.ptr;
 	while (c){
-		void* n=*((void**)c);
+		page_header_t* h=(page_header_t*)c;
+		void* n=h->p;
 #ifdef _MSC_VER
 		VirtualFree(c,0,MEM_RELEASE);
 #else
-		munmap(c,_pg_sz);
+		munmap(c,h->sz);
 #endif
 		c=n;
 	}

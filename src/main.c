@@ -6,7 +6,7 @@
 
 
 #define ALLOCATION_COUNT 4096
-#define MAX_ALLOCATION_SIZE 4096
+#define MAX_ALLOCATION_SIZE 8192
 
 
 
@@ -22,7 +22,7 @@ int main(int argc,const char** argv){
 	srand((unsigned int)time(NULL));
 	block_t bl[ALLOCATION_COUNT];
 	for (uint32_t i=0;i<ALLOCATION_COUNT;i++){
-		bl[i].sz=rand()*(MAX_ALLOCATION_SIZE-1)/RAND_MAX+1;
+		bl[i].sz=((uint64_t)rand())*(MAX_ALLOCATION_SIZE-1)/RAND_MAX+1;
 		bl[i].p=allocate(bl[i].sz);
 		for (uint32_t j=0;j<bl[i].sz;j++){
 			*(bl[i].p+j)=rand()*255/RAND_MAX;
@@ -34,7 +34,7 @@ int main(int argc,const char** argv){
 		bl[j]=bl[i];
 	}
 	for (uint32_t i=0;i<(ALLOCATION_COUNT>>1);i++){
-		bl[i].sz=rand()*(MAX_ALLOCATION_SIZE-1)/RAND_MAX+1;
+		bl[i].sz=((uint64_t)rand())*(MAX_ALLOCATION_SIZE-1)/RAND_MAX+1;
 		bl[i].p=allocate(bl[i].sz);
 		for (uint32_t j=0;j<bl[i].sz;j++){
 			*(bl[i].p+j)=rand()*255/RAND_MAX;
