@@ -89,10 +89,7 @@ void* allocate(size_t sz){
 	}
 	CORRECT_ALIGNMENT(sz);
 	node_t* n=a_dt.h;
-	while (n){
-		if (n->sz>sz){
-			break;
-		}
+	while (n&&n->sz<sz){
 		n=n->n;
 	}
 	if (!n){
